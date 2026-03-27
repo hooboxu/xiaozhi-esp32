@@ -4,7 +4,7 @@ name: Build Boards
   push:
     分支:
       - main
-      - ci/* # for ci test1
+      - ci/* # for ci test2
   pull_request:
     分支:
       - main
