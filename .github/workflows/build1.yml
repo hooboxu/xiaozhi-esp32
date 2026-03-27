@@ -3,32 +3,37 @@ name: Build Waveshare 4.2
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: # 允许手动点击按钮触发编译
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: espressif/idf:v5.5.2 # 确保使用官方推荐的版本
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive # 关键：必须拉取所有驱动子模块
+          submodules: recursive
           fetch-depth: 0
+
+      - name: Install ESP-IDF
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git wget flex bison gperf python3 python3-pip python3-venv cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
+          mkdir -p ~/esp
+          cd ~/esp
+          git clone -b v5.5 --recursive https://github.com/espressif/esp-idf.git
+          cd esp-idf
+          ./install.sh esp32s3
 
       - name: Build with Release Script
         shell: bash
         run: |
-          # 1. 加载 ESP-IDF 环境
-          . $IDF_PATH/export.sh
-          
-          # 2. 运行优化后的脚本
-          # 脚本会自动清理旧缓存并注入 N16R8 模组所需的 PSRAM 八线配置
+          source ~/esp/esp-idf/export.sh
+          # 运行你修正过缩进的脚本
           python3 scripts/release.py
 
       - name: Upload Firmware
-        if: success() # 只有编译成功才上传
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: waveshare-4.2-firmware
