@@ -1,12 +1,12 @@
 name: Build Boards
 
-on:
+于:
   push:
-    branches:
+    分支:
       - main
-      - ci/* # for ci test
+      - ci/* # for ci test1
   pull_request:
-    branches:
+    分支:
       - main
 
 permissions:
