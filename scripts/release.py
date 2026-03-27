@@ -67,15 +67,56 @@ def do_compile_waveshare():
     print(f"\n🚀 开始编译专用固件: {name} (Target: {target})")
     print("="*50)
 
-    # --- 深度清理步骤：解决 component_requirements.py 报错 ---
+    # 深度清理步骤
     if os.path.exists("build"):
         print("清理旧的编译目录 (build)...")
         shutil.rmtree("build")
     if os.path.exists("sdkconfig"):
         print("移除旧的配置 (sdkconfig)...")
         os.remove("sdkconfig")
-    # -----------------------------------------------------
 
-    # 1. 准备环境
+    # 1. 准备环境 (修复此处缩进)
     os.environ.pop("IDF_TARGET", None)
     if os.system(f"idf.py set-target {target}") != 0:
+        print("❌ set-target 失败")
+        sys.exit(1)
+
+    # 2. 注入配置
+    sdkconfig_lines = [f"CONFIG_BOARD_TYPE_WAVESHARE_S3_RLCD_4_2=y"]
+    sdkconfig_lines.extend(build_cfg.get("sdkconfig_append", []))
+    
+    # 强制补全 PSRAM 八线配置 (针对 N16R8 模组)
+    psram_fixes = ["CONFIG_SPIRAM_MODE_OCT=y", "CONFIG_SPIRAM_TYPE_AUTO=y"]
+    for fix in psram_fixes:
+        if fix not in sdkconfig_lines:
+            sdkconfig_lines.append(fix)
+
+    final_configs = _apply_auto_selects(sdkconfig_lines)
+
+    with Path("sdkconfig").open("a") as f:
+        f.write("\n# Final Release Configs\n")
+        for line in final_configs:
+            f.write(f"{line}\n")
+
+    # 3. 执行编译
+    build_cmd = f"idf.py -DBOARD_NAME={name} -DBOARD_TYPE={board_type} build"
+    if os.system(build_cmd) != 0:
+        print("❌ 编译失败")
+        sys.exit(1)
+
+    # 4. 合并与打包
+    if os.system("idf.py merge-bin") != 0:
+        print("❌ 合并 bin 失败")
+        sys.exit(1)
+
+    out_dir = Path("releases")
+    out_dir.mkdir(exist_ok=True)
+    zip_path = out_dir / f"v{project_version}_{name}.zip"
+    
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write("build/merged-binary.bin", arcname="merged-binary.bin")
+    
+    print(f"\n✅ 编译成功！固件已打包至: {zip_path}")
+
+if __name__ == "__main__":
+    do_compile_waveshare()
