@@ -3,32 +3,33 @@ name: Build Waveshare 4.2
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: # 允许你在 GitHub 页面上手动点击按钮开始编译
+  workflow_dispatch: # 允许手动点击按钮触发编译
 
 jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: espressif/idf:v5.5.2 # 确保使用官方推荐的 v5.5.2 版本
+      image: espressif/idf:v5.5.2 # 确保使用官方推荐的版本
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive # 关键：必须递归拉取驱动库
+          submodules: recursive # 关键：必须拉取所有驱动子模块
           fetch-depth: 0
 
       - name: Build with Release Script
         shell: bash
         run: |
-          # 1. 加载 IDF 环境
+          # 1. 加载 ESP-IDF 环境
           . $IDF_PATH/export.sh
           
-          # 2. 运行你修改后的脚本 (它现在只编译微雪 4.2)
-          python scripts/release.py
+          # 2. 运行优化后的脚本
+          # 脚本会自动清理旧缓存并注入 N16R8 模组所需的 PSRAM 八线配置
+          python3 scripts/release.py
 
       - name: Upload Firmware
+        if: success() # 只有编译成功才上传
         uses: actions/upload-artifact@v4
         with:
           name: waveshare-4.2-firmware
-          # 脚本运行完后，releases 目录下会生成 zip 包，直接上传
           path: releases/*.zip
